@@ -30,7 +30,23 @@ if($PSScriptRoot -eq ""){
 }
 
 #Stop Per-User OneDriveSetup
-Get-Process OneDriveSetup | Stop-Process
+$ods = (Get-Process OneDrive).Id
+Stop-Process -Id $ods
+Wait-Process -Id $ods
+
+#Stop OneDrive in Administrator context if installing during MDT build
+$od = Get-Process OneDrive
+if($od){
+  $odpath = $od.Path
+  $pathtosearch = "\Appdata\Local\Microsoft\OneDrive\OneDrive.exe"
+  #'^Sara(h?)$'
+
+  if($odpath.Contains($pathtosearch)){
+    Stop-Process -Id $od.Id
+  }
+  
+}
+ 
 
 #Start OneDriveSetup Per-Device mode
 $installProcess = Start-Process $current_path\OneDriveSetup.exe -ArgumentList "/allusers" -WindowStyle Hidden -PassThru
@@ -45,11 +61,11 @@ New-PSDrive -PSProvider Registry -Name HKUDefaultHive -Root HKEY_USERS
 #Load Default User Hive
 Reg Load "HKU\DefaultHive" "C:\Users\Default\NTUser.dat"
 #Set OneDriveSetup Variable
-$OneDriveSetup = Get-ItemProperty "HKUDefaultHive:\DefaultHive\Software\Microsoft\Windows\CurrentVersion\Run" | Select -ExpandProperty "OneDriveSetup"
+$OneDriveSetup = Get-ItemProperty "HKUDefaultHive:\DefaultHive\Software\Microsoft\Windows\CurrentVersion\Run" | Select-Object -ExpandProperty "OneDriveSetup"
 #If Variable returns True, remove the OneDriveSetup Value
 If ($OneDriveSetup) { Remove-ItemProperty -Path "HKUDefaultHive:\DefaultHive\Software\Microsoft\Windows\CurrentVersion\Run" -Name "OneDriveSetup" }
 #Unload Hive
-Reg Unload "HKU\DefaultHive\"
+Reg Unload "HKU\DefaultHive"
 #Remove PSDrive HKUDefaultHive
 Remove-PSDrive "HKUDefaultHive"
 
